@@ -22,21 +22,37 @@ jobs:
       # === SETUP CHROME PROFILE ===
       - name: Setup Chrome Profile
         run: |
-          # Download profile from your GitHub repo
-          wget -q https://github.com/teejeedeeone2022/studious-winner/raw/main/my_google_profile.tar.gz
+          # Download profile from your GitHub repo - CORRECT URL
+          wget -q https://github.com/teejeedeeone2025/studious-winner/raw/main/my_google_profile.tar.gz
+          
+          # Check if download was successful
+          if [ ! -f "my_google_profile.tar.gz" ]; then
+              echo "❌ Download failed! File not found."
+              echo "Please check the URL: https://github.com/teejeedeeone2025/studious-winner/raw/main/my_google_profile.tar.gz"
+              exit 1
+          fi
           
           # Create directory and extract with correct structure
           mkdir -p my_google_profile
           tar -xzf my_google_profile.tar.gz -C my_google_profile
           
-          # Verify the extracted structure - CRITICAL CHECKS
+          # Verify the extracted structure
           echo "🔍 Checking profile contents..."
           
-          # Check for Google Profile Picture (indicates real user profile)
+          if [ ! -d "my_google_profile/google-chrome" ]; then
+              echo "❌ Extraction failed! Profile structure incorrect."
+              echo "Contents of downloaded archive:"
+              tar -tzf my_google_profile.tar.gz | head -10
+              exit 1
+          fi
+          
+          # Check for Google Profile Picture
           if [ -f "my_google_profile/google-chrome/Default/Google Profile Picture.png" ]; then
               echo "✅ Google Profile Picture found - real user profile"
           else
               echo "❌ Google Profile Picture missing"
+              echo "Files in Default directory:"
+              ls -la my_google_profile/google-chrome/Default/ | head -10
           fi
           
           # Check for Cookies file
@@ -45,10 +61,6 @@ jobs:
           else
               echo "❌ Cookies file missing"
           fi
-          
-          # Check for key profile files
-          echo "📁 Important profile files:"
-          ls -la my_google_profile/google-chrome/Default/ | grep -E "(Cookies|Local State|Login Data|Profile Picture)" || echo "No key files found"
           
           # Clean up
           rm my_google_profile.tar.gz
