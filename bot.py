@@ -1,95 +1,38 @@
 import time
 import os
-import shutil
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
-from selenium.common.exceptions import WebDriverException
-from selenium.webdriver.chrome.service import Service
-from webdriver_manager.chrome import ChromeDriverManager
 
 def main():
     print("🚀 Starting Selenium test with your profile...")
     
-    # === FIX: Clean up any existing Chrome processes and lock files ===
-    print("🧹 Cleaning up any existing Chrome processes...")
-    os.system('pkill -f chrome || true')  # Kill any Chrome processes
-    os.system('pkill -f chromedriver || true')  # Kill any ChromeDriver processes
-    
-    # Define the profile path
-    profile_path = '/home/runner/.config/my_google_profile/google-chrome'
-    
-    # Remove Chrome lock files if they exist
-    lock_files = [
-        os.path.join(profile_path, 'Default', 'SingletonLock'),
-        os.path.join(profile_path, 'SingletonLock'),
-        os.path.join(profile_path, 'SingletonCookie'),
-        os.path.join(profile_path, 'Default', 'SingletonCookie')
-    ]
-    
-    for lock_file in lock_files:
-        if os.path.exists(lock_file):
-            try:
-                os.remove(lock_file)
-                print(f"✅ Removed lock file: {lock_file}")
-            except Exception as e:
-                print(f"⚠️  Could not remove {lock_file}: {e}")
-    
     # Configure Chrome options for GitHub Actions
     chrome_options = Options()
     
-    # === CRITICAL: Use the injected profile path ===
+    # === USE THE CORRECT PROFILE PATH ===
+    profile_path = '/home/runner/my_google_profile/google-chrome'
     chrome_options.add_argument(f'--user-data-dir={profile_path}')
     chrome_options.add_argument('--profile-directory=Default')
     
-    # === FIX: Add unique user data directory per run ===
-    import uuid
-    unique_id = uuid.uuid4().hex[:8]
-    unique_profile_dir = f'{profile_path}_{unique_id}'
-    
-    # Copy profile to unique directory to avoid conflicts
-    if os.path.exists(profile_path):
-        try:
-            shutil.copytree(profile_path, unique_profile_dir)
-            print(f"✅ Copied profile to unique directory: {unique_profile_dir}")
-            chrome_options.add_argument(f'--user-data-dir={unique_profile_dir}')
-        except Exception as e:
-            print(f"⚠️  Could not copy profile, using original: {e}")
-            chrome_options.add_argument(f'--user-data-dir={profile_path}')
-    
-    # Chrome configuration
+    # Required for GitHub Actions
     chrome_options.add_argument('--headless=new')
     chrome_options.add_argument('--no-sandbox')
     chrome_options.add_argument('--disable-dev-shm-usage')
     chrome_options.add_argument('--disable-gpu')
-    chrome_options.add_argument('--window-size=1920,1080')
+    chrome_options.add_argument('--window-size=1920x1080')
     chrome_options.add_argument('--disable-extensions')
     chrome_options.add_argument('--remote-debugging-port=0')
-    chrome_options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
-    
-    # Additional stability arguments
-    chrome_options.add_argument('--no-first-run')
-    chrome_options.add_argument('--disable-setuid-sandbox')
-    chrome_options.add_argument('--disable-web-security')
-    chrome_options.add_argument('--disable-notifications')
+    chrome_options.add_argument('user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
 
     # Initialize the driver
     try:
-        print("🛠️  Setting up ChromeDriver...")
-        service = Service(ChromeDriverManager().install())
-        driver = webdriver.Chrome(service=service, options=chrome_options)
+        driver = webdriver.Chrome(options=chrome_options)
         print("✅ Chrome driver initialized successfully!")
-        
-    except WebDriverException as e:
+    except Exception as e:
         print(f"❌ Failed to initialize Chrome driver: {e}")
-        print("🔄 Trying alternative method without service...")
-        try:
-            driver = webdriver.Chrome(options=chrome_options)
-            print("✅ Chrome driver initialized with fallback method!")
-        except Exception as fallback_error:
-            print(f"❌ Fallback also failed: {fallback_error}")
-            return
+        return
 
     def check_running_cells():
         """Check if there are any running Colab cells"""
@@ -165,6 +108,12 @@ def main():
         print(f"📄 Current URL: {driver.current_url}")
         print(f"📄 Page title: {driver.title}")
 
+        # Check if we're logged in (should not be on login page)
+        if "signin" in driver.current_url or "accounts.google.com" in driver.current_url:
+            print("❌ NOT LOGGED IN: Redirected to login page")
+            print("   The Chrome profile may not contain valid session cookies")
+            return
+
         # Check if there are any running Colab cells
         print("🔍 Checking for running Colab cells...")
         
@@ -184,7 +133,7 @@ def main():
             
             if cell_started:
                 print("   ⏳ Waiting for cell to start running...")
-                time.sleep(10)
+                time.sleep(5)
 
         # Take screenshot
         screenshot_filename = 'colab_screenshot.png'
@@ -206,14 +155,6 @@ def main():
             print("\n✅ Browser closed. Test completed.")
         except:
             print("\n⚠️  Browser already closed or failed to quit.")
-        
-        # Clean up temporary profile directory
-        if 'unique_profile_dir' in locals() and os.path.exists(unique_profile_dir):
-            try:
-                shutil.rmtree(unique_profile_dir)
-                print(f"✅ Cleaned up temporary profile: {unique_profile_dir}")
-            except:
-                print("⚠️  Could not clean up temporary profile")
 
 if __name__ == "__main__":
     main()
