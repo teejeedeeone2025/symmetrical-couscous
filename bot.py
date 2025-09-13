@@ -18,7 +18,7 @@ def main():
     os.system('pkill -f chromedriver || true')  # Kill any ChromeDriver processes
     
     # Define the profile path
-    profile_path = '/home/runner/.config/google-chrome'
+    profile_path = '/home/runner/.config/my_google_profile/google-chrome'
     
     # Remove Chrome lock files if they exist
     lock_files = [
