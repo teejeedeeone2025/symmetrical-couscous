@@ -8,47 +8,60 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # Step 1: Checkout repository (this gets your bot.py, requirements.txt, AND your profile)
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Step 2: Set up Python
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.11'
 
-      # Step 3: Install Python dependencies
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: pip install selenium webdriver-manager
 
-      # --- NEW STEP: SETUP CHROME PROFILE ---
+      # === SETUP CHROME PROFILE ===
       - name: Setup Chrome Profile
         run: |
-          mkdir -p ~/.config/google-chrome/Default
-          # Download the profile from YOUR repository
+          # Download profile from your GitHub repo
           wget -q https://github.com/teejeedeeone2025/studious-winner/raw/main/my_google_profile.tar.gz
-          # Extract it to the Chrome config directory
-          tar -xzf my_google_profile.tar.gz -C ~/.config/google-chrome/Default/ --strip-components=5
-          echo "✅ Chrome profile injected"
+          
+          # Create directory and extract with correct structure
+          mkdir -p my_google_profile
+          tar -xzf my_google_profile.tar.gz -C my_google_profile
+          
+          # Verify the extracted structure
+          echo "📦 Extracted profile contents:"
+          find my_google_profile -type f | head -10
+          
+          # Check if cookies exist (critical for login)
+          if [ -f "my_google_profile/google-chrome/Default/Cookies" ]; then
+              echo "✅ Cookies file found - profile should work"
+          else
+              echo "❌ Cookies file missing - profile won't work"
+              echo "Files in Default directory:"
+              ls -la my_google_profile/google-chrome/Default/ || true
+          fi
+          
+          # Clean up
+          rm my_google_profile.tar.gz
 
-      # --- NEW STEP: INSTALL CHROME ---
+      # === INSTALL CHROME ===
       - name: Install Chrome
         run: |
-          wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
-          echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" | sudo tee /etc/apt/sources.list.d/google-chrome.list
-          sudo apt-get update
-          sudo apt-get install -y google-chrome-stable
+          wget -q https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
+          sudo apt install ./google-chrome-stable_current_amd64.deb -y
+          rm google-chrome-stable_current_amd64.deb
+          echo "Chrome version:"
+          google-chrome --version
 
-      # Step 4: Run bot (Now with Chrome installed and profile loaded)
+      # === RUN BOT ===
       - name: Run bot
         run: python bot.py
 
-      # Add delay before next trigger (5 minutes = 300 seconds)
+      # === SELF-TRIGGERING ===
       - name: Delay before next run
-        run: sleep 500
+        run: sleep 300
 
-      # Self-trigger next run
       - name: Trigger Next Run
         run: |
           curl -X POST -H "Accept: application/vnd.github+json" \
