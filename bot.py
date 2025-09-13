@@ -8,10 +8,23 @@ from selenium.webdriver.common.keys import Keys
 def main():
     print("🚀 Starting Selenium test with your profile...")
     
+    # Check if profile picture exists (verifies it's a real user profile)
+    profile_picture_path = '/home/runner/my_google_profile/google-chrome/Default/Google Profile Picture.png'
+    if os.path.exists(profile_picture_path):
+        print("✅ Google Profile Picture found - this is a real user profile")
+    else:
+        print("❌ Google Profile Picture missing - profile may be incomplete")
+        # List what files we actually have
+        profile_dir = '/home/runner/my_google_profile/google-chrome/Default/'
+        if os.path.exists(profile_dir):
+            print("📁 Files in profile directory:")
+            for f in os.listdir(profile_dir)[:10]:  # Show first 10 files
+                print(f"   - {f}")
+    
     # Configure Chrome options for GitHub Actions
     chrome_options = Options()
     
-    # === USE THE CORRECT PROFILE PATH ===
+    # Use the correct profile path
     profile_path = '/home/runner/my_google_profile/google-chrome'
     chrome_options.add_argument(f'--user-data-dir={profile_path}')
     chrome_options.add_argument('--profile-directory=Default')
@@ -55,45 +68,6 @@ def main():
                 continue
         return False
 
-    def run_focused_cell():
-        """Run the currently focused cell using Ctrl+Enter"""
-        print("   ⌨️  Sending Ctrl+Enter to run focused cell...")
-        
-        try:
-            body = driver.find_element(By.TAG_NAME, 'body')
-            body.send_keys(Keys.CONTROL + Keys.ENTER)
-            print("   ✅ Ctrl+Enter sent successfully!")
-            return True
-            
-        except Exception as e:
-            print(f"   ❌ Failed to send Ctrl+Enter: {str(e)}")
-            return False
-
-    def focus_first_cell():
-        """Try to focus on the first code cell"""
-        print("   🔍 Attempting to focus on first code cell...")
-        
-        cell_selectors = [
-            "//div[contains(@class, 'code-cell')]",
-            "//div[contains(@class, 'cell')]",
-            "//div[contains(@class, 'input')]",
-            "//div[@role='textbox']",
-        ]
-        
-        for selector in cell_selectors:
-            try:
-                cells = driver.find_elements(By.XPATH, selector)
-                if cells:
-                    print(f"   ✅ Found {len(cells)} potential code cells")
-                    cells[0].click()
-                    print("   🎯 First code cell focused!")
-                    return True
-            except Exception as e:
-                continue
-        
-        print("   ⚠️  Could not find a code cell to focus")
-        return False
-
     try:
         # Visit the specified Google Colab URL
         print("\n🌐 Visiting Google Colab URL...")
@@ -111,29 +85,32 @@ def main():
         # Check if we're logged in (should not be on login page)
         if "signin" in driver.current_url or "accounts.google.com" in driver.current_url:
             print("❌ NOT LOGGED IN: Redirected to login page")
-            print("   The Chrome profile may not contain valid session cookies")
+            print("   The session cookies may be expired or invalid")
+            
+            # Let's try to check what cookies we actually have
+            try:
+                cookies = driver.get_cookies()
+                print(f"   🍪 Found {len(cookies)} cookies in the profile")
+                for cookie in cookies[:5]:  # Show first 5 cookies
+                    print(f"     - {cookie['name']}: {cookie.get('value', '')[:50]}...")
+            except:
+                print("   ❓ Could not retrieve cookies")
+            
             return
 
+        # If we get here, we're logged in!
+        print("✅ SUCCESS: Logged in and on Colab page!")
+        
         # Check if there are any running Colab cells
         print("🔍 Checking for running Colab cells...")
         
         cell_running = check_running_cells()
-        cell_started = False
         
         if cell_running:
             print("   ⏳ Cells are running - waiting for completion...")
             time.sleep(15)
         else:
-            print("   ✅ No running cells detected - attempting to run first cell")
-            
-            if focus_first_cell():
-                time.sleep(2)
-            
-            cell_started = run_focused_cell()
-            
-            if cell_started:
-                print("   ⏳ Waiting for cell to start running...")
-                time.sleep(5)
+            print("   ✅ No running cells detected")
 
         # Take screenshot
         screenshot_filename = 'colab_screenshot.png'
